@@ -247,16 +247,35 @@ body{
   }
 }
 
-#youtube-player {
+/* Click Overlay Screen */
+#click-screen {
   position: fixed;
-  width: 200px;
-  height: 200px;
-  right: 0;
-  bottom: 0;
-  opacity: 0.01;
-  pointer-events: none;
-  z-index: -1;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.4s ease;
 }
+
+#click-screen h1 {
+  font-family: 'Orbitron', sans-serif;
+  color: #ffd000;
+  font-size: 36px;
+  text-shadow: 0 0 20px rgba(255, 208, 0, 0.6);
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+#click-screen p {
+  color: #aaa;
+  font-size: 16px;
+  letter-spacing: 2px;
+}
+
 #music-toggle {
   position: fixed;
   right: 18px;
@@ -282,7 +301,14 @@ body{
 <div class="bg"></div>
 <div class="overlay"></div>
 
-<div id="youtube-player" aria-hidden="true"></div>
+<!-- Fullscreen click-to-enter gateway overlay -->
+<div id="click-screen">
+  <h1>CLICK ANYWHERE TO ENTER</h1>
+  <p>[ INITIALIZING AUDIO SYSTEM ]</p>
+</div>
+
+<!-- Hidden YouTube Audio Embed -->
+<div id="youtube-player" style="display:none;"></div>
 <button id="music-toggle" type="button" aria-label="Play background music">▶ PLAY MUSIC</button>
 
 <div class="top-title">
@@ -351,40 +377,28 @@ body{
 let player;
 let playerReady = false;
 const musicButton = document.getElementById("music-toggle");
+const clickScreen = document.getElementById("click-screen");
 const videoId = "Os4WFOsJE_I";
 
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("youtube-player", {
-    width: "200",
-    height: "200",
     videoId,
     playerVars: {
-      autoplay: 1,
-      mute: 1, // Required by browsers to allow autoplay on load
+      autoplay: 0,
       controls: 0,
       loop: 1,
       playlist: videoId,
       playsinline: 1,
-      rel: 0,
-      ...(location.protocol === "http:" || location.protocol === "https:"
-        ? { origin: location.origin }
-        : {})
+      rel: 0
     },
     events: {
       onReady: function () {
         playerReady = true;
-        // Automatically start playing muted right away
-        player.playVideo();
       },
       onStateChange: function (event) {
         if (event.data === YT.PlayerState.PLAYING) {
-          if (player.isMuted()) {
-            musicButton.textContent = "🔊 UNMUTE / PLAY";
-          } else {
-            musicButton.textContent = "❚❚ PAUSE MUSIC";
-          }
-        } else if (event.data === YT.PlayerState.PAUSED ||
-                   event.data === YT.PlayerState.ENDED) {
+          musicButton.textContent = "❚❚ PAUSE MUSIC";
+        } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
           musicButton.textContent = "▶ PLAY MUSIC";
         }
       }
@@ -392,28 +406,23 @@ function onYouTubeIframeAPIReady() {
   });
 }
 
-// Automatically unmute and play music on the very first user click anywhere on the page
-function unlockAudio() {
-  if (player && playerReady) {
-    player.unMute();
+// When the user clicks the gateway overlay anywhere, it hides the screen and safely starts the music
+clickScreen.addEventListener("click", function() {
+  if (playerReady && player) {
     player.setVolume(70);
     player.playVideo();
   }
-  // Remove listener after first interaction
-  window.removeEventListener("click", unlockAudio);
-  window.removeEventListener("keydown", unlockAudio);
-}
+  clickScreen.style.opacity = "0";
+  setTimeout(() => {
+    clickScreen.style.display = "none";
+  }, 400);
+});
 
-window.addEventListener("click", unlockAudio);
-window.addEventListener("keydown", unlockAudio);
-
-musicButton.addEventListener("click", function (e) {
-  e.stopPropagation(); // Prevent duplicate trigger from global listener
+musicButton.addEventListener("click", function () {
   if (!playerReady || !player) return;
-  if (player.getPlayerState() === YT.PlayerState.PLAYING && !player.isMuted()) {
+  if (player.getPlayerState() === YT.PlayerState.PLAYING) {
     player.pauseVideo();
   } else {
-    player.unMute();
     player.setVolume(70);
     player.playVideo();
   }
